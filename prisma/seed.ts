@@ -2,11 +2,26 @@
  * Prisma 数据库种子脚本
  * 写入人教 PEP 示例内容 + 默认学生
  * 运行：npm run db:seed
+ *
+ * 自动适配本地 SQLite（file:./dev.db）或远程 Turso（libsql://...）。
  */
 import { PrismaClient } from "@prisma/client";
+import { PrismaLibSQL } from "@prisma/adapter-libsql";
+import { createClient } from "@libsql/client";
 import { pepContent } from "../src/data/pep-content";
 
-const prisma = new PrismaClient();
+function createPrismaClient(): PrismaClient {
+  const url = process.env.DATABASE_URL ?? "file:./dev.db";
+  if (url.startsWith("libsql:")) {
+    const adapter = new PrismaLibSQL(
+      createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN })
+    );
+    return new PrismaClient({ adapter });
+  }
+  return new PrismaClient();
+}
+
+const prisma = createPrismaClient();
 
 async function main() {
   console.log("🌱 开始写入种子数据...");

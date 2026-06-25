@@ -2,7 +2,8 @@
 // 对应人教 PEP（三起）3-6 年级
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
