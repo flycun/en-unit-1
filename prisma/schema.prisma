@@ -1,0 +1,204 @@
+// 小学英语课本听力同步学习 - 数据模型
+// 对应人教 PEP（三起）3-6 年级
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// 年级（3-6 年级）
+model Grade {
+  id        String   @id @default(cuid())
+  /// 年级序号，如 3、4、5、6
+  level     Int      @unique
+  /// 显示名称，如 "三年级"
+  name      String
+  /// 学期：上册/下册
+  semester  String   @default("上下册")
+  /// 主题色（hex），用于 UI 渲染
+  color     String   @default("#3B82F6")
+  /// 封面图描述/emoji
+  icon      String   @default("📚")
+  sortOrder Int      @default(0)
+  units     Unit[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("grades")
+}
+
+/// 单元
+model Unit {
+  id          String   @id @default(cuid())
+  /// 单元序号，如 Unit 1
+  number      Int
+  /// 单元标题，如 "Hello!"
+  title       String
+  /// 单元描述
+  description String?
+  /// 封面图 emoji
+  icon        String   @default("📘")
+  sortOrder   Int      @default(0)
+
+  gradeId String
+  grade   Grade   @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+
+  lessons Lesson[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gradeId, number])
+  @@map("units")
+}
+
+/// 课文（一篇听力材料）
+model Lesson {
+  id        String   @id @default(cuid())
+  /// 课文序号，如 Part A、Part B
+  part      String   @default("A")
+  /// 课文标题
+  title     String
+  /// 课文类型：dialogue(对话)/story(故事)/chant(歌谣)/song(歌曲)/words(词汇)
+  type      String   @default("dialogue")
+  /// 音频文件路径（相对 public 目录），如 /audio/grade3-unit1-a.mp3
+  audioUrl  String
+  /// 音频总时长（秒）
+  duration  Float    @default(0)
+  /// 封面图 emoji
+  icon      String   @default("🎧")
+  sortOrder Int      @default(0)
+
+  unitId String
+  unit   Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  sentences Sentence[]
+  exercises Exercise[]
+  progress      Progress[]
+  exerciseResults ExerciseResult[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("lessons")
+}
+
+/// 带时间戳的句子（同步高亮的核心）
+model Sentence {
+  id        String @id @default(cuid())
+  /// 英文文本
+  text      String
+  /// 中文翻译
+  translation String?
+  /// 句子起始时间（秒）
+  startTime Float
+  /// 句子结束时间（秒）
+  endTime   Float
+  /// 说话人（可选，用于对话场景）
+  speaker   String?
+  sortOrder Int    @default(0)
+
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@map("sentences")
+}
+
+/// 练习题
+model Exercise {
+  id        String @id @default(cuid())
+  /// 题目类型：choice(单选)/fill(填空)/match(匹配)
+  type      String
+  /// 题干
+  question  String
+  /// 选项数组（JSON 字符串）：选择题和匹配题用
+  /// 选择题: ["A. Hello", "B. Hi", ...]
+  /// 匹配题: 左右两组，如 {"left": ["cat","dog"], "right": ["猫","狗"]}
+  /// 填空题: 空白位置提示，如 ["___ you Mike?"]
+  options   String?
+  /// 正确答案（JSON 字符串）
+  /// 选择题: "A" 或索引 0
+  /// 填空题: ["Are"]
+  /// 匹配题: {"cat": "猫", "dog": "狗"}
+  answer    String
+  /// 题目解析
+  explanation String?
+  /// 关联音频时间点（秒，可选），用于"再听一次"
+  audioStartTime Float?
+  /// 题目顺序
+  sortOrder Int    @default(0)
+
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@map("exercises")
+}
+
+/// 学生（MVP 单一默认学生）
+model Student {
+  id       String   @id @default(cuid())
+  name     String   @default("默认学生")
+  avatar   String?  @default("🧒")
+
+  progress      Progress[]
+  exerciseResults ExerciseResult[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("students")
+}
+
+/// 学习进度记录
+model Progress {
+  id        String   @id @default(cuid())
+  /// 上次播放位置（秒）
+  lastPosition  Float @default(0)
+  /// 已完成时长（秒）
+  completedDuration Float @default(0)
+  /// 完成百分比（0-100）
+  percentage    Float @default(0)
+  /// 是否已完成
+  completed     Boolean @default(false)
+  /// 累计播放次数
+  playCount     Int    @default(0)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  lessonId String
+  lesson   Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, lessonId])
+  @@map("progress")
+}
+
+/// 练习成绩记录
+model ExerciseResult {
+  id          String   @id @default(cuid())
+  /// 总题数
+  total       Int
+  /// 答对题数
+  correct     Int
+  /// 得分（0-100）
+  score       Int
+  /// 答题详情（JSON 字符串）
+  detail      String?
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  lessonId String
+  lesson   Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  @@map("exercise_results")
+}
