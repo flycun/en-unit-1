@@ -42,3 +42,12 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Tencent Cloud EdgeOne
+.edgeone/*
+.tef_dist/*
+
+# EdgeOne skills（工具产物，不纳入版本控制）
+.agents/
+.claude/
+skills-lock.json
